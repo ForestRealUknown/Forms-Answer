@@ -1,3 +1,9 @@
+/**
+ * MS Forms Filler
+ * Run on a fresh quiz attempt.
+ * Reads saved answers from localStorage and fills the form.
+ */
+
 (function () {
   'use strict';
 
@@ -8,6 +14,7 @@
     return s
       .replace(/^\d+\.\s*/, "")
       .replace(/\(?\d+\s*poäng\)?/gi, "")
+      .replace(/\(?\d+\s*points?\)?/gi, "")
       .replace(/Ett alternativ\.?/gi, "")
       .replace(/Flera alternativ\.?/gi, "")
       .replace(/Text med en rad\.?/gi, "")
@@ -42,16 +49,24 @@
         clone.querySelectorAll('[aria-hidden="true"], button, svg').forEach(n => n.remove());
         qText = clone.textContent.trim();
       }
-      const cbs = el.querySelectorAll('input[type="checkbox"]:not([disabled])');
-      const txs = el.querySelectorAll('[data-automation-id="textInput"]:not([disabled])');
+
+      const cbs  = el.querySelectorAll('input[type="checkbox"]:not([disabled])');
+      const txs  = el.querySelectorAll('[data-automation-id="textInput"]:not([disabled])');
       const rank = el.querySelectorAll('[role="listbox"] [role="option"]');
 
       let type = "unknown", inputs = [];
-      if (cbs.length) { type = "checkbox"; inputs = [...cbs]; }
-      else if (txs.length) { type = "text"; inputs = [...txs]; }
-      else if (rank.length) { type = "ranking"; inputs = [...rank]; }
+      if (cbs.length)         { type = "checkbox"; inputs = [...cbs]; }
+      else if (txs.length)    { type = "text";     inputs = [...txs]; }
+      else if (rank.length)   { type = "ranking";  inputs = [...rank]; }
 
-      return { element: el, questionText: qText, type, inputs, index: idx, key: normKey(qText) };
+      return {
+        element: el,
+        questionText: qText,
+        type,
+        inputs,
+        index: idx,
+        key: normKey(qText)
+      };
     }).filter(q => q.type !== "unknown");
   }
 
@@ -101,11 +116,14 @@
     return { ok, rank, total: qs.length };
   }
 
+  // ---- UI ----
   let currentQuestions = getQuestions();
   let statsEl, listBox;
 
   function updateStats() {
-    if (statsEl) statsEl.textContent = `Questions: ${currentQuestions.length} | Saved: ${Object.keys(recorded).length}`;
+    if (statsEl) {
+      statsEl.textContent = `Questions: ${currentQuestions.length} | Saved: ${Object.keys(recorded).length}`;
+    }
   }
 
   function refreshTags() {
@@ -114,7 +132,7 @@
       const q = row.__q; if (!q) return;
       const tag = row.querySelector('.rec-tag'); if (!tag) return;
       const has = recorded[q.key] !== undefined;
-      tag.textContent = has ? '✓ saved' : '— none';
+      tag.textContent = has ? 'saved' : 'none';
       tag.style.background = has ? '#14532d' : '#333';
       tag.style.color = has ? '#86efac' : '#aaa';
     });
@@ -133,14 +151,14 @@
     const header = document.createElement('div');
     header.style.cssText = `display:flex;justify-content:space-between;align-items:center;
       padding:12px 16px;background:#2d2d2d;border-bottom:1px solid #444;cursor:move;user-select:none;`;
-    header.innerHTML = `<b style="color:#fff;">📋 MS Forms Filler</b>`;
+    header.innerHTML = `<b style="color:#fff;">MS Forms Filler</b>`;
 
     const controls = document.createElement('div');
     const btnMin = document.createElement('button');
-    btnMin.textContent = '—';
+    btnMin.textContent = '-';
     btnMin.style.cssText = 'background:#4b5563;color:#fff;border:0;border-radius:4px;width:24px;height:24px;cursor:pointer;margin-right:4px;';
     const btnClose = document.createElement('button');
-    btnClose.textContent = '✕';
+    btnClose.textContent = 'x';
     btnClose.style.cssText = 'background:#dc2626;color:#fff;border:0;border-radius:4px;width:24px;height:24px;cursor:pointer;';
     controls.append(btnMin, btnClose);
     header.appendChild(controls);
@@ -160,11 +178,11 @@
     btnFillAll.style.cssText = 'flex:1;padding:8px;background:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:500;';
     btnFillAll.onclick = () => {
       const { ok, rank, total } = autoFill();
-      statsEl.textContent = `Filled ${ok}/${total}${rank ? ` · ${rank} ranking (see below)` : ''}`;
+      statsEl.textContent = `Filled ${ok}/${total}${rank ? ` | ${rank} ranking (see below)` : ''}`;
     };
 
     const btnRescan = document.createElement('button');
-    btnRescan.textContent = '↻ Rescan';
+    btnRescan.textContent = 'Rescan';
     btnRescan.style.cssText = 'padding:8px 12px;background:#7c3aed;color:#fff;border:0;border-radius:6px;cursor:pointer;';
     btnRescan.onclick = () => {
       currentQuestions = getQuestions();
@@ -186,18 +204,18 @@
 
       const qText = document.createElement('div');
       qText.style.cssText = 'font-weight:500;margin-bottom:6px;color:#fff;font-size:12px;';
-      qText.textContent = `${i+1}. ${q.questionText.slice(0,65)}${q.questionText.length>65?'...':''}`;
+      qText.textContent = `${i + 1}. ${q.questionText.slice(0, 65)}${q.questionText.length > 65 ? '...' : ''}`;
       qText.title = q.questionText;
 
       const qMeta = document.createElement('div');
       qMeta.style.cssText = 'font-size:11px;color:#888;display:flex;gap:8px;align-items:center;';
       const metaText = document.createElement('span');
-      metaText.textContent = `${q.type} · ${q.inputs.length} options`;
+      metaText.textContent = `${q.type} | ${q.inputs.length} options`;
       const recTag = document.createElement('span');
       recTag.className = 'rec-tag';
       const has = recorded[q.key] !== undefined;
-      recTag.textContent = has ? '✓ saved' : '— none';
-      recTag.style.cssText = `font-size:11px;padding:2px 6px;border-radius:3px;background:${has?'#14532d':'#333'};color:${has?'#86efac':'#aaa'};`;
+      recTag.textContent = has ? 'saved' : 'none';
+      recTag.style.cssText = `font-size:11px;padding:2px 6px;border-radius:3px;background:${has ? '#14532d' : '#333'};color:${has ? '#86efac' : '#aaa'};`;
       qMeta.append(metaText, recTag);
 
       row.append(qText, qMeta);
@@ -218,7 +236,7 @@
       btn.style.cssText = 'margin-top:8px;padding:4px 10px;background:#16a34a;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:11px;';
       btn.onclick = () => {
         const r = fillQuestion(q);
-        btn.textContent = r === true ? '✓ Filled' : r === "ranking" ? '📋 See list' : '✗ No match';
+        btn.textContent = r === true ? 'Filled' : r === 'ranking' ? 'See list' : 'No match';
         btn.style.background = r === true ? '#16a34a' : r === 'ranking' ? '#7c3aed' : '#dc2626';
         setTimeout(() => { btn.textContent = 'Answer'; btn.style.background = '#16a34a'; }, 1500);
       };
@@ -234,7 +252,7 @@
     btnMin.onclick = () => {
       minimized = !minimized;
       body.style.display = minimized ? 'none' : 'block';
-      btnMin.textContent = minimized ? '+' : '—';
+      btnMin.textContent = minimized ? '+' : '-';
     };
     btnClose.onclick = () => box.remove();
 
@@ -262,7 +280,7 @@
   [500, 1500, 3000].forEach(delay => {
     setTimeout(() => {
       const { ok, rank, total } = autoFill();
-      if (ok || rank) console.log(`@${delay}ms → filled ${ok}/${total}, ranking: ${rank}`);
+      if (ok || rank) console.log(`@${delay}ms -> filled ${ok}/${total}, ranking: ${rank}`);
       updateStats();
       refreshTags();
     }, delay);
